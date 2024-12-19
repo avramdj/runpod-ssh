@@ -15,5 +15,5 @@ runpod-ssh sync
 ## Sync only a specific pod prefix
 
 ```bash
-runpod-ssh sync --pod-filter avramdj
+runpod-ssh sync --pod-filter my-h100-cluster
 ```
