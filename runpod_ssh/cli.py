@@ -1,10 +1,10 @@
 import os
+import shutil
 import click
 from pathlib import Path
 from platformdirs import user_config_path
-from runpod_ssh.client import RunPodClient
+from .client import RunPodClient
 from .config import save_api_key, get_api_key
-import sys
 
 DEFAULT_SSH_KEY_NAME = "runpod"
 DEFAULT_CONFIG_NAME = "config_runpod"
@@ -12,12 +12,7 @@ DEFAULT_SSH_USER = "root"
 
 
 def get_ssh_dir() -> Path:
-    """Get the SSH config directory in a cross-platform way."""
-    if os.name == "nt":  # Windows
-        ssh_dir = user_config_path("SSH")
-    else:  # Unix-like
-        ssh_dir = Path.home() / ".ssh"
-    return ssh_dir
+    return user_config_path("SSH") if os.name == "nt" else Path.home() / ".ssh"
 
 
 def generate_ssh_config(
@@ -27,7 +22,6 @@ def generate_ssh_config(
     ssh_user: str = DEFAULT_SSH_USER,
     enable_x11: bool = True,
 ) -> tuple[list[str], int]:
-    """Generate SSH config entries for the pods."""
     config_template = """Host %s
   HostName %s
   Port %s
@@ -38,11 +32,7 @@ def generate_ssh_config(
 
     configs: list[str] = []
     pods_added = 0
-
-    # Get the correct SSH key path
-    if ssh_key_path is None:
-        ssh_key_path = get_ssh_dir() / DEFAULT_SSH_KEY_NAME
-
+    ssh_key_path = ssh_key_path or get_ssh_dir() / DEFAULT_SSH_KEY_NAME
     x11_forward = "  ForwardX11 yes" if enable_x11 else ""
 
     for idx, (pod_name, (ip, port)) in enumerate(pods.items()):
@@ -67,38 +57,32 @@ def generate_ssh_config(
     return configs, pods_added
 
 
+def check_ssh_key(ssh_key_path: Path) -> bool:
+    if not ssh_key_path.exists():
+        return False
+
+    if os.name != "nt":
+        mode = ssh_key_path.stat().st_mode
+        if mode & 0o077:
+            click.echo("Warning: SSH key has too open permissions. Fixing...")
+            ssh_key_path.chmod(0o600)
+
+    return True
+
+
 @click.group()
 def cli() -> None:
-    """RunPod SSH config manager."""
     pass
 
 
 @cli.command()
-@click.option(
-    "--config-dir",
-    type=click.Path(),
-    help="SSH config directory path (default: platform-specific SSH dir)",
-)
-@click.option("--pod-filter", type=str, help="Filter pods by name prefix")
-@click.option(
-    "--config-name",
-    type=str,
-    default=DEFAULT_CONFIG_NAME,
-    help="Name of the generated config file",
-)
-@click.option(
-    "--ssh-key",
-    type=click.Path(),
-    help=f"Path to SSH key (default: ~/.ssh/{DEFAULT_SSH_KEY_NAME})",
-)
-@click.option(
-    "--ssh-user",
-    type=str,
-    default=DEFAULT_SSH_USER,
-    help="SSH user for connecting to pods",
-)
-@click.option("--x11/--no-x11", default=True, help="Enable/disable X11 forwarding")
-@click.option("--api-key", help="RunPod API key (overrides configured key)")
+@click.option("--config-dir", type=click.Path())
+@click.option("--pod-filter", type=str)
+@click.option("--config-name", type=str, default=DEFAULT_CONFIG_NAME)
+@click.option("--ssh-key", type=click.Path())
+@click.option("--ssh-user", type=str, default=DEFAULT_SSH_USER)
+@click.option("--x11/--no-x11", default=True)
+@click.option("--api-key")
 def sync(
     config_dir: str | None,
     pod_filter: str | None,
@@ -108,16 +92,10 @@ def sync(
     x11: bool,
     api_key: str | None,
 ) -> None:
-    """Sync RunPod SSH configurations."""
-    config_dir_path = (
-        Path(os.path.expanduser(config_dir)) if config_dir else get_ssh_dir()
-    )
-    if not config_dir_path.exists():
-        config_dir_path.mkdir(parents=True, exist_ok=True)
-        click.echo(f"Created SSH config directory: {config_dir_path}")
+    config_dir_path = Path(os.path.expanduser(config_dir)) if config_dir else get_ssh_dir()
+    config_dir_path.mkdir(parents=True, exist_ok=True)
 
     ssh_key_path = Path(os.path.expanduser(ssh_key)) if ssh_key else None
-
     client = RunPodClient(api_key)
     pods = dict(client.get_all_running_pods())
     configs, pods_added = generate_ssh_config(
@@ -129,23 +107,19 @@ def sync(
     )
 
     config_path = config_dir_path / config_name
-    _ = config_path.write_text("\n".join(configs))
+    config_path.write_text("\n".join(configs))
 
-    # Print summary
     click.echo(f"\n✨ Summary:")
     click.echo(f"• Total pods found: {len(pods)}")
     click.echo(f"• Pods added to config: {pods_added}")
     click.echo(f"• Config written to: {config_path}")
-    click.echo(
-        f"• SSH key path: {ssh_key_path or (get_ssh_dir() / DEFAULT_SSH_KEY_NAME)}"
-    )
+    click.echo(f"• SSH key path: {ssh_key_path or (get_ssh_dir() / DEFAULT_SSH_KEY_NAME)}")
     click.echo(f"• SSH user: {ssh_user}")
     click.echo(f"• X11 forwarding: {'enabled' if x11 else 'disabled'}")
 
-    # Check if Include directive exists
     ssh_config = config_dir_path / "config"
     include_line = f"Include {config_name}"
-
+    
     if ssh_config.exists():
         content = ssh_config.read_text()
         if include_line not in content:
@@ -159,34 +133,16 @@ def sync(
 
 
 @cli.command()
-@click.option("--api-key", prompt=True, hide_input=True, help="RunPod API key")
+@click.option("--api-key", prompt=True, hide_input=True)
 def configure(api_key: str) -> None:
-    """Configure RunPod credentials."""
     save_api_key(api_key)
     click.echo("API key saved successfully!")
 
 
-def check_ssh_key(ssh_key_path: Path) -> bool:
-    """Check if SSH key exists and has correct permissions."""
-    if not ssh_key_path.exists():
-        return False
-
-    # Check permissions on Unix-like systems
-    if os.name != "nt":
-        mode = ssh_key_path.stat().st_mode
-        if mode & 0o077:  # Check if group or others have any permissions
-            click.echo("Warning: SSH key has too open permissions. Fixing...")
-            ssh_key_path.chmod(0o600)
-
-    return True
-
-
 @cli.command()
 def setup() -> None:
-    """First-time setup wizard."""
     click.echo("Welcome to RunPod SSH setup! 🚀\n")
 
-    # Check for API key
     if not get_api_key():
         click.echo("First, let's configure your RunPod API key.")
         click.echo("You can find it at: https://runpod.io/console/user/settings")
@@ -194,7 +150,6 @@ def setup() -> None:
         save_api_key(api_key)
         click.echo("✅ API key saved successfully!\n")
 
-    # Check for SSH key
     ssh_dir = get_ssh_dir()
     ssh_key_path = ssh_dir / DEFAULT_SSH_KEY_NAME
 
@@ -205,7 +160,6 @@ def setup() -> None:
             os.system(f'ssh-keygen -t ed25519 -f "{ssh_key_path}" -N ""')
             click.echo("\n✅ SSH key generated!")
 
-            # Display public key
             pub_key = ssh_key_path.with_suffix(".pub").read_text().strip()
             click.echo("\nPlease add this public key to RunPod:")
             click.echo("1. Go to: https://runpod.io/console/user/settings")
@@ -219,33 +173,24 @@ def setup() -> None:
                 type=click.Path(exists=True, path_type=Path),
             )
             if existing_key != ssh_key_path:
-                # Create symlink or copy
                 if os.name == "nt":
-                    import shutil
-
                     shutil.copy2(existing_key, ssh_key_path)
                 else:
                     ssh_key_path.symlink_to(existing_key)
                 click.echo(f"\n✅ SSH key linked: {existing_key} -> {ssh_key_path}")
 
-    # Check SSH config
     ssh_config = ssh_dir / "config"
-    config_name = DEFAULT_CONFIG_NAME
-    include_line = f"Include {config_name}"
+    include_line = f"Include {DEFAULT_CONFIG_NAME}"
 
     if ssh_config.exists():
         content = ssh_config.read_text()
         if include_line not in content:
-            if click.confirm(
-                f"\nWould you like to add '{include_line}' to your SSH config?"
-            ):
+            if click.confirm(f"\nWould you like to add '{include_line}' to your SSH config?"):
                 with ssh_config.open("a") as f:
                     f.write(f"\n{include_line}\n")
                 click.echo("✅ SSH config updated!")
     else:
-        if click.confirm(
-            f"\nWould you like to create an SSH config file with '{include_line}'?"
-        ):
+        if click.confirm(f"\nWould you like to create an SSH config file with '{include_line}'?"):
             ssh_config.write_text(f"{include_line}\n")
             click.echo("✅ SSH config created!")
 
@@ -253,11 +198,4 @@ def setup() -> None:
 
 
 def main() -> None:
-    """CLI entry point."""
     cli()
-
-
-if __name__ == "__main__":
-    main()
-
-# ... rest of the file stays the same ...

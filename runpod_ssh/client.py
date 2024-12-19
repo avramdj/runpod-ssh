@@ -21,53 +21,20 @@ class RunPodClient:
     def get_all_running_pods(
         self,
     ) -> Generator[tuple[str, tuple[str | None, int | None]], None, None]:
-        """Fetch all running pods from RunPod API and yield their names and connection details."""
-        query = """
-        query Pods { 
-            myself { 
-                pods { 
-                    id 
-                    name 
-                    runtime { 
-                        uptimeInSeconds 
-                        ports { 
-                            ip 
-                            isIpPublic 
-                            privatePort 
-                            publicPort 
-                            type 
-                        } 
-                        gpus { 
-                            id 
-                            gpuUtilPercent 
-                            memoryUtilPercent 
-                        } 
-                        container { 
-                            cpuPercent 
-                            memoryPercent 
-                        } 
-                    } 
-                } 
-            } 
-        }
-        """
+        query = """query Pods { myself { pods { name runtime { ports { ip isIpPublic publicPort } } } } }"""
 
         response = requests.post(self.url, json={"query": query}, headers=self.headers)
         response.raise_for_status()
-
         data = PodResponse.model_validate(response.json()["data"])
 
         for pod in data.myself["pods"]:
             if pod.runtime is None:
                 continue
 
-            ip: str | None = None
-            port: int | None = None
-
+            ip = port = None
             for p in pod.runtime.ports:
                 if p.is_ip_public:
-                    ip = p.ip
-                    port = p.public_port
+                    ip, port = p.ip, p.public_port
                     break
 
             yield (pod.name, (ip, port))
