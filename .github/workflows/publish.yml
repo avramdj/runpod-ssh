@@ -7,8 +7,13 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for trusted publishing
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}  # Checkout the released tag
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,7 +28,15 @@ jobs:
         run: |
           poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
 
+      - name: Install dependencies
+        run: poetry install
+
       - name: Build and publish
         run: |
           poetry build
-          poetry publish 
+          poetry publish --no-interaction
+
+      - name: Verify publish
+        run: |
+          echo "Package published to PyPI successfully!"
+          echo "Version: ${{ github.event.release.tag_name }}"

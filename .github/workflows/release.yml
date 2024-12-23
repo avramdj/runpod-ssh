@@ -36,15 +36,18 @@ jobs:
           latest="${{ steps.latest_version.outputs.version }}"
           if [ "$current" != "$latest" ]; then
             echo "new_version=true" >> $GITHUB_OUTPUT
+            echo "Creating new release: v$current (current) != v$latest (latest)"
           else
             echo "new_version=false" >> $GITHUB_OUTPUT
+            echo "No new version: v$current (current) = v$latest (latest)"
           fi
 
       - name: Create Release
         if: steps.compare.outputs.new_version == 'true'
         run: |
-          gh release create v${{ steps.current_version.outputs.version }} \
+          gh release create "v${{ steps.current_version.outputs.version }}" \
             --title "v${{ steps.current_version.outputs.version }}" \
-            --generate-notes
+            --generate-notes \
+            --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
