@@ -57,7 +57,7 @@ def save_api_key(api_key: str) -> None:
 
         # Write the new machine entry
         f.write(f"machine {normalized_host}\n")
-        f.write(f"  login user\n")
+        f.write("  login user\n")
         f.write(f"  password {api_key}\n")
 
     if os.name != "nt":

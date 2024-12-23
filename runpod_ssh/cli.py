@@ -109,7 +109,7 @@ def sync(
     config_path = config_dir_path / config_name
     config_path.write_text("\n".join(configs))
 
-    click.echo(f"\n✨ Summary:")
+    click.echo("\n✨ Summary:")
     click.echo(f"• Total pods found: {len(pods)}")
     click.echo(f"• Pods added to config: {pods_added}")
     click.echo(f"• Config written to: {config_path}")
@@ -123,12 +123,12 @@ def sync(
     if ssh_config.exists():
         content = ssh_config.read_text()
         if include_line not in content:
-            click.echo(f"\n⚠️  Action needed:")
+            click.echo("\n🚨  Action needed:")
             click.echo(f"Add the following line to {ssh_config}:")
             click.echo(f"  {include_line}")
     else:
-        click.echo(f"\n⚠️  Note: No SSH config file found at {ssh_config}")
-        click.echo(f"Create one with the following content:")
+        click.echo(f"\n🚨  Note: No SSH config file found at {ssh_config}")
+        click.echo("Create one with the following content:")
         click.echo(f"  {include_line}")
 
 
