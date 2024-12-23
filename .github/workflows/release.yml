@@ -1,0 +1,50 @@
+name: Create Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get current version
+        id: current_version
+        run: echo "version=$(cat runpod_ssh/VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Get latest release version
+        id: latest_version
+        run: |
+          latest=$(gh release list -L 1 | cut -f1)
+          latest=${latest#v}  # Remove 'v' prefix if present
+          if [ -z "$latest" ]; then
+            latest="0.0.0"
+          fi
+          echo "version=$latest" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compare versions
+        id: compare
+        run: |
+          current="${{ steps.current_version.outputs.version }}"
+          latest="${{ steps.latest_version.outputs.version }}"
+          if [ "$current" != "$latest" ]; then
+            echo "new_version=true" >> $GITHUB_OUTPUT
+          else
+            echo "new_version=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        if: steps.compare.outputs.new_version == 'true'
+        run: |
+          gh release create v${{ steps.current_version.outputs.version }} \
+            --title "v${{ steps.current_version.outputs.version }}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

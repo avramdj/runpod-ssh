@@ -1,5 +1,7 @@
 # RunPod SSH
 
+[![PyPI version](https://badge.fury.io/py/runpod-ssh.svg)](https://badge.fury.io/py/runpod-ssh)
+
 CLI tool to manage SSH configurations for RunPod instances.
 
 # Usage
