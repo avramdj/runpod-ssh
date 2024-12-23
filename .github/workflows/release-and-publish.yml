@@ -1,4 +1,4 @@
-name: Create Release
+name: Release and Publish
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  release:
+  release-and-publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -50,4 +50,36 @@ jobs:
             --generate-notes \
             --latest
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # PyPI publishing steps
+      - name: Set up Python
+        if: steps.compare.outputs.new_version == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install poetry
+        if: steps.compare.outputs.new_version == 'true'
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Configure poetry
+        if: steps.compare.outputs.new_version == 'true'
+        run: |
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+
+      - name: Install dependencies
+        if: steps.compare.outputs.new_version == 'true'
+        run: poetry install
+
+      - name: Build and publish
+        if: steps.compare.outputs.new_version == 'true'
+        run: |
+          poetry build
+          poetry publish --no-interaction
+
+      - name: Verify publish
+        if: steps.compare.outputs.new_version == 'true'
+        run: |
+          echo "✨ Version v${{ steps.current_version.outputs.version }} released and published!" 
