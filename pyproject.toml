@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "runpod-ssh"
-version = "0.1.0"
+version = "0.1.1"
 description = "RunPod SSH config manager"
 authors = ["Avram Djordjevic <avramdjordjevic2@gmail.com>"]
 readme = "README.md"
@@ -20,3 +20,7 @@ runpod-ssh = "runpod_ssh.cli:main"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry_bumpversion.file."runpod_ssh/VERSION"]
+search = "{current_version}"
+replace = "{new_version}"

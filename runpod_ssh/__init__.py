@@ -1,3 +1,4 @@
 """RunPod SSH config manager."""
 
-__version__ = "0.1.0"
+with open("VERSION", "r") as f:
+    __version__ = f.read().strip()
