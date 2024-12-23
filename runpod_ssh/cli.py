@@ -92,7 +92,9 @@ def sync(
     x11: bool,
     api_key: str | None,
 ) -> None:
-    config_dir_path = Path(os.path.expanduser(config_dir)) if config_dir else get_ssh_dir()
+    config_dir_path = (
+        Path(os.path.expanduser(config_dir)) if config_dir else get_ssh_dir()
+    )
     config_dir_path.mkdir(parents=True, exist_ok=True)
 
     ssh_key_path = Path(os.path.expanduser(ssh_key)) if ssh_key else None
@@ -113,13 +115,15 @@ def sync(
     click.echo(f"• Total pods found: {len(pods)}")
     click.echo(f"• Pods added to config: {pods_added}")
     click.echo(f"• Config written to: {config_path}")
-    click.echo(f"• SSH key path: {ssh_key_path or (get_ssh_dir() / DEFAULT_SSH_KEY_NAME)}")
+    click.echo(
+        f"• SSH key path: {ssh_key_path or (get_ssh_dir() / DEFAULT_SSH_KEY_NAME)}"
+    )
     click.echo(f"• SSH user: {ssh_user}")
     click.echo(f"• X11 forwarding: {'enabled' if x11 else 'disabled'}")
 
     ssh_config = config_dir_path / "config"
     include_line = f"Include {config_name}"
-    
+
     if ssh_config.exists():
         content = ssh_config.read_text()
         if include_line not in content:
@@ -185,12 +189,16 @@ def setup() -> None:
     if ssh_config.exists():
         content = ssh_config.read_text()
         if include_line not in content:
-            if click.confirm(f"\nWould you like to add '{include_line}' to your SSH config?"):
+            if click.confirm(
+                f"\nWould you like to add '{include_line}' to your SSH config?"
+            ):
                 with ssh_config.open("a") as f:
                     f.write(f"\n{include_line}\n")
                 click.echo("✅ SSH config updated!")
     else:
-        if click.confirm(f"\nWould you like to create an SSH config file with '{include_line}'?"):
+        if click.confirm(
+            f"\nWould you like to create an SSH config file with '{include_line}'?"
+        ):
             ssh_config.write_text(f"{include_line}\n")
             click.echo("✅ SSH config created!")
 
