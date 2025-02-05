@@ -1,4 +1,6 @@
-import requests
+import http.client
+import json
+import urllib.parse
 from typing import Generator
 from .config import get_api_key
 from .models import PodResponse
@@ -22,10 +24,23 @@ class RunPodClient:
         self,
     ) -> Generator[tuple[str, tuple[str | None, int | None]], None, None]:
         query = """query Pods { myself { pods { name runtime { ports { ip isIpPublic publicPort } } } } }"""
-
-        response = requests.post(self.url, json={"query": query}, headers=self.headers)
-        response.raise_for_status()
-        data = PodResponse.model_validate(response.json()["data"])
+        
+        parsed_url = urllib.parse.urlparse(self.url)
+        conn = http.client.HTTPSConnection(parsed_url.netloc)
+        
+        payload = json.dumps({"query": query})
+        conn.request("POST", parsed_url.path + "?" + parsed_url.query, 
+                    body=payload, 
+                    headers=self.headers)
+        
+        response = conn.getresponse()
+        if response.status >= 400:
+            raise http.client.HTTPException(f"HTTP Error {response.status}: {response.reason}")
+            
+        data = json.loads(response.read().decode())
+        conn.close()
+        
+        data = PodResponse.model_validate(data["data"])
 
         for pod in data.myself["pods"]:
             if pod.runtime is None:

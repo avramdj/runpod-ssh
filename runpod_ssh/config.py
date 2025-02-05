@@ -4,7 +4,10 @@ import platform
 from netrc import netrc, NetrcParseError
 from typing import Final
 from urllib.parse import urlparse
-from requests.utils import NETRC_FILES
+
+# Define netrc file locations based on platform
+_netrc_paths = [os.path.expanduser('~/netrc'), os.path.expanduser('~/_netrc')] if platform.system() == 'Windows' else [os.path.expanduser('~/.netrc')]
+NETRC_FILES: Final[list[str]] = _netrc_paths
 
 NETRC_HOST: Final = "api.runpod.io"
 
