@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "runpod-ssh"
-version = "0.1.4"
+version = "0.2.0"
 description = "RunPod SSH config manager"
 authors = ["Avram Djordjevic <avramdjordjevic2@gmail.com>"]
 readme = "README.md"
