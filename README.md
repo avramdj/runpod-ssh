@@ -1,6 +1,6 @@
 # RunPod SSH
 
-[![PyPI version](https://badge.fury.io/py/runpod-ssh.svg)](https://badge.fury.io/py/runpod-ssh)
+[![PyPI version](https://badge.fury.io/py/runpod-ssh.svg?cacheBust=1)](https://badge.fury.io/py/runpod-ssh)
 
 CLI tool to manage SSH configurations for RunPod instances.
 
